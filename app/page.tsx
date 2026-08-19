@@ -85,7 +85,6 @@ function App() {
             tieBreak={tieBreak}
             tieBreakFirstBreak={tieBreakFirstBreak}
             onDraftChange={(d) => {
-              setDraft(d)
               saveDraft(d)
             }}
             onClearDraft={() => {

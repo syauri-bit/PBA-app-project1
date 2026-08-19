@@ -23,6 +23,8 @@ export interface MatchConfig {
   memo: string
   away: TeamConfig
   home: TeamConfig
+  awayBallColor?: "white" | "yellow"
+  homeBallColor?: "white" | "yellow"
 }
 
 /** An append-only action used to reconstruct the full game deterministically. */

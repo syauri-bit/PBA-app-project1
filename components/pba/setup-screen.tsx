@@ -1,297 +1,404 @@
 "use client"
 
 import { useState } from "react"
-import { ChevronLeft, Play } from "lucide-react"
-import type { GameMode, MatchConfig, Method, Side } from "@/lib/pba/types"
-import { MODE_LABELS, playersPerTeam } from "@/lib/pba/types"
-import { useTheme } from "./theme-context"
+import type { GameMode, MatchConfig, Side } from "@/lib/pba/types"
+import { useTheme } from "@/components/pba/theme-context"
 
 interface SetupScreenProps {
   mode: GameMode
-  onBack: () => void
   onStart: (config: MatchConfig) => void
+  onBack: () => void
 }
 
-function BallIcon({ color, ring }: { color: string; ring?: boolean }) {
-  return (
-    <span
-      className="inline-block h-4 w-4 rounded-full align-middle"
-      style={{
-        backgroundColor: color,
-        border: ring ? "2px solid currentColor" : "1px solid rgba(0,0,0,0.25)",
-      }}
-      aria-hidden
-    />
-  )
-}
-
-export function SetupScreen({ mode, onBack, onStart }: SetupScreenProps) {
+export function SetupScreen({ mode, onStart, onBack }: SetupScreenProps) {
   const { theme } = useTheme()
-  const ppt = playersPerTeam(mode)
 
-  const [method, setMethod] = useState<Method>("point")
-  const [winningScore, setWinningScore] = useState("15")
-  const [winningSets, setWinningSets] = useState("3")
-  const [firstBreak, setFirstBreak] = useState<Side>("away")
-  const [timeouts, setTimeouts] = useState("3")
-  const [referee, setReferee] = useState("")
-  const [recorder, setRecorder] = useState("")
-  const [memo, setMemo] = useState("")
-  const [awayName, setAwayName] = useState("어웨이팀")
-  const [homeName, setHomeName] = useState("홈팀")
-  const [awayPlayers, setAwayPlayers] = useState<string[]>(["", ""])
-  const [homePlayers, setHomePlayers] = useState<string[]>(["", ""])
+  // 경기 방식 (점수제 / 세트제)
+  const [matchType, setMatchType] = useState<"points" | "sets">("sets")
 
-  const inputStyle = {
-    backgroundColor: "transparent",
-    borderColor: "currentColor",
-    color: theme.fg,
-  }
+  // 세트제 설정 State
+  const [targetSets, setTargetSets] = useState<number>(3)
+  const [setPoints, setSetPoints] = useState<number>(15)
+  const [lastSetPoints, setLastSetPoints] = useState<number>(11)
 
-  const start = () => {
-    const score = Math.max(1, Number.parseInt(winningScore, 10) || 1)
-    const sets = Math.max(1, Number.parseInt(winningSets, 10) || 1)
-    const to = Math.min(5, Math.max(1, Number.parseInt(timeouts, 10) || 1))
-    const config: MatchConfig = {
+  // 점수제 설정 State
+  const [targetPoints, setTargetPoints] = useState<number>(15)
+
+  // 공통 설정 State
+  const [timeoutsPerPlayer, setTimeoutsPerPlayer] = useState<number>(1)
+  const [firstBreak, setFirstBreak] = useState<Side>("away") // away: 선수 1, home: 선수 2
+  const [awayBallColor, setAwayBallColor] = useState<"white" | "yellow">("white")
+
+  // 선수명 State
+  const [awayPlayerName, setAwayPlayerName] = useState<string>("")
+  const [homePlayerName, setHomePlayerName] = useState<string>("")
+
+  // 심판 정보 State (주심, 부심, 기록심)
+  const [mainReferee, setMainReferee] = useState<string>("")
+  const [assistantReferee, setAssistantReferee] = useState<string>("")
+  const [recordReferee, setRecordReferee] = useState<string>("")
+
+  // 경기원 정보 State (경기원 1, 경기원 2)
+  const [official1, setOfficial1] = useState<string>("")
+  const [official2, setOfficial2] = useState<string>("")
+
+  // 기타 정보
+  const [memo, setMemo] = useState<string>("")
+
+  // 표시용 선수 이름 (미입력 시 기본값)
+  const p1Name = awayPlayerName.trim() || "선수 1"
+  const p2Name = homePlayerName.trim() || "선수 2"
+
+  const handleStart = () => {
+    const config = {
       mode,
-      method,
-      winningScore: score,
-      winningSets: sets,
+      matchType,
+      targetPoints: matchType === "points" ? targetPoints : setPoints,
+      targetSets: matchType === "sets" ? targetSets : 1,
+      setPoints,
+      lastSetPoints,
       firstBreak,
-      timeouts: to,
-      referee: referee.trim(),
-      recorder: recorder.trim(),
-      memo: memo.trim(),
-      away: {
-        name: awayName.trim() || "어웨이팀",
-        players: awayPlayers.slice(0, ppt).map((p, i) => p.trim() || `선수${i + 1}`),
-      },
-      home: {
-        name: homeName.trim() || "홈팀",
-        players: homePlayers.slice(0, ppt).map((p, i) => p.trim() || `선수${i + 1}`),
-      },
-    }
+      timeoutsPerPlayer,
+      awayTeamName: awayPlayerName,
+      homeTeamName: homePlayerName,
+      awayPlayers: [awayPlayerName],
+      homePlayers: [homePlayerName],
+      awayBallColor,
+      homeBallColor: awayBallColor === "white" ? "yellow" : "white",
+      // 심판 및 경기원 정보 (추후 연결용 데이터 확장)
+      refereeName: mainReferee, 
+      mainReferee,
+      assistantReferee,
+      recordReferee,
+      official1,
+      official2,
+      memo,
+    } as unknown as MatchConfig
+
     onStart(config)
   }
 
-  const TeamColumn = ({
-    side,
-    name,
-    setName,
-    players,
-    setPlayers,
-  }: {
-    side: Side
-    name: string
-    setName: (v: string) => void
-    players: string[]
-    setPlayers: (v: string[]) => void
-  }) => {
-    const isFirst = firstBreak === side
-    return (
-      <div
-        className="flex flex-col gap-2 rounded-xl border p-3"
-        style={{ borderColor: "currentColor" }}
-      >
-        <div className="flex items-center justify-between">
-          <span className="text-xs font-bold uppercase opacity-60">
-            {side === "away" ? "어웨이 (왼쪽)" : "홈 (오른쪽)"}
-          </span>
-          {isFirst && (
-            <span className="flex items-center gap-1 text-[11px] font-semibold">
-              초구 <BallIcon color="#FFFFFF" ring />
-            </span>
-          )}
-          {!isFirst && (
-            <span className="flex items-center gap-1 text-[11px] font-semibold opacity-70">
-              상대 <BallIcon color="#FDD835" />
-            </span>
-          )}
-        </div>
-        <input
-          value={name}
-          onChange={(e) => setName(e.target.value)}
-          placeholder="팀명"
-          className="w-full rounded-md border px-2 py-1.5 text-sm font-semibold outline-none"
-          style={inputStyle}
-        />
-        {Array.from({ length: ppt }).map((_, i) => (
-          <input
-            key={i}
-            value={players[i] ?? ""}
-            onChange={(e) => {
-              const next = [...players]
-              next[i] = e.target.value
-              setPlayers(next)
-            }}
-            placeholder={ppt > 1 ? `선수 ${i + 1}` : "선수명"}
-            className="w-full rounded-md border px-2 py-1.5 text-sm outline-none"
-            style={inputStyle}
-          />
-        ))}
-      </div>
-    )
-  }
-
   return (
-    <div className="flex min-h-full flex-col">
-      <header
-        className="sticky top-0 z-10 flex items-center justify-between gap-2 px-4 py-3 shadow-sm"
-        style={{ backgroundColor: theme.bg }}
-      >
-        <button type="button" onClick={onBack} className="flex items-center gap-1 text-sm font-semibold">
-          <ChevronLeft className="h-4 w-4" />
-          뒤로
-        </button>
-        <span className="truncate text-sm font-bold opacity-80">{MODE_LABELS[mode]}</span>
-        <button
-          type="button"
-          onClick={start}
-          className="flex items-center gap-1.5 rounded-lg px-4 py-2 text-sm font-bold shadow-md active:scale-95"
-          style={{ backgroundColor: theme.fg, color: theme.bg }}
-        >
-          <Play className="h-4 w-4" />
-          경기시작
-        </button>
-      </header>
+    <div className={`w-full max-w-md mx-auto p-4 space-y-4 min-h-[85vh] flex flex-col justify-between ${theme.bg || ''} ${theme.text || ''}`}>
+      <div className="space-y-4">
+        {/* 상단 헤더 */}
+        <div className="flex justify-between items-center">
+          <button
+            type="button"
+            onClick={onBack}
+            className={`px-3 py-1.5 rounded-lg text-xs font-semibold border transition-all active:scale-95 cursor-pointer ${theme.cardBg || ''} ${theme.border || 'border-slate-700'}`}
+          >
+            뒤로
+          </button>
+          <h1 className="font-bold text-base">1부투어 (개인전)</h1>
+          <button
+            type="button"
+            onClick={handleStart}
+            className={`px-3.5 py-1.5 rounded-lg text-xs font-bold border transition-all active:scale-95 cursor-pointer ${theme.cardBg || ''} ${theme.border || 'border-slate-700'}`}
+          >
+            경기시작
+          </button>
+        </div>
 
-      <main className="flex-1 px-4 py-3">
-        <div className="mx-auto flex max-w-2xl flex-col gap-3">
-          {/* Method + winning score */}
-          <div className="grid grid-cols-2 gap-3">
-            <div className="flex flex-col gap-1">
-              <label className="text-xs font-bold opacity-60">방식</label>
-              <div className="flex overflow-hidden rounded-md border" style={{ borderColor: "currentColor" }}>
-                {(["point", "set"] as Method[]).map((m) => (
-                  <button
-                    key={m}
-                    type="button"
-                    onClick={() => setMethod(m)}
-                    className="flex-1 px-2 py-1.5 text-sm font-semibold"
-                    style={
-                      method === m
-                        ? { backgroundColor: theme.fg, color: theme.bg }
-                        : { backgroundColor: "transparent" }
-                    }
-                  >
-                    {m === "point" ? "점수제" : "세트제"}
-                  </button>
-                ))}
-              </div>
-            </div>
-            <div className="flex flex-col gap-1">
-              <label className="text-xs font-bold opacity-60">승리 점수</label>
+        {/* 1. 방식 선택 (점수제 / 세트제) */}
+        <div className={`p-3.5 rounded-xl border ${theme.cardBg || ''} ${theme.border || 'border-slate-700'}`}>
+          <div className="text-xs opacity-70 mb-2 font-medium">방식</div>
+          <div className="grid grid-cols-2 gap-2">
+            <button
+              type="button"
+              onClick={() => setMatchType("points")}
+              className={`py-2 rounded-lg text-xs font-bold border transition-all cursor-pointer ${
+                matchType === "points"
+                  ? `${theme.inputBg || 'bg-slate-700'} text-white font-black border-slate-500`
+                  : `opacity-60 ${theme.border || 'border-slate-700'}`
+              }`}
+            >
+              점수제
+            </button>
+            <button
+              type="button"
+              onClick={() => setMatchType("sets")}
+              className={`py-2 rounded-lg text-xs font-bold border transition-all cursor-pointer ${
+                matchType === "sets"
+                  ? `${theme.inputBg || 'bg-slate-700'} text-white font-black border-slate-500`
+                  : `opacity-60 ${theme.border || 'border-slate-700'}`
+              }`}
+            >
+              세트제
+            </button>
+          </div>
+        </div>
+
+        {/* 2. 동적 입력란 (세트제 vs 점수제) */}
+        {matchType === "sets" ? (
+          <div className="grid grid-cols-4 gap-2">
+            <div className={`p-2 rounded-xl border ${theme.cardBg || ''} ${theme.border || 'border-slate-700'}`}>
+              <div className="text-[10px] opacity-70 mb-1 text-center font-medium">승리 세트</div>
               <input
-                inputMode="numeric"
-                value={winningScore}
-                onChange={(e) => setWinningScore(e.target.value.replace(/[^0-9]/g, ""))}
-                className="w-full rounded-md border px-2 py-1.5 text-sm outline-none"
-                style={inputStyle}
+                type="number"
+                value={targetSets}
+                onChange={(e) => setTargetSets(Number(e.target.value))}
+                className={`w-full p-1 text-center font-bold rounded-lg border text-xs ${theme.inputBg || ''} ${theme.border || 'border-slate-700'}`}
+              />
+            </div>
+            <div className={`p-2 rounded-xl border ${theme.cardBg || ''} ${theme.border || 'border-slate-700'}`}>
+              <div className="text-[10px] opacity-70 mb-1 text-center font-medium">세트 점수</div>
+              <input
+                type="number"
+                value={setPoints}
+                onChange={(e) => setSetPoints(Number(e.target.value))}
+                className={`w-full p-1 text-center font-bold rounded-lg border text-xs ${theme.inputBg || ''} ${theme.border || 'border-slate-700'}`}
+              />
+            </div>
+            <div className={`p-2 rounded-xl border ${theme.cardBg || ''} ${theme.border || 'border-slate-700'}`}>
+              <div className="text-[10px] opacity-70 mb-1 text-center font-medium">막세트 점수</div>
+              <input
+                type="number"
+                value={lastSetPoints}
+                onChange={(e) => setLastSetPoints(Number(e.target.value))}
+                className={`w-full p-1 text-center font-bold rounded-lg border text-xs ${theme.inputBg || ''} ${theme.border || 'border-slate-700'}`}
+              />
+            </div>
+            <div className={`p-2 rounded-xl border ${theme.cardBg || ''} ${theme.border || 'border-slate-700'}`}>
+              <div className="text-[10px] opacity-70 mb-1 text-center font-medium">타임아웃</div>
+              <input
+                type="number"
+                min={1}
+                max={5}
+                value={timeoutsPerPlayer}
+                onChange={(e) => setTimeoutsPerPlayer(Number(e.target.value))}
+                className={`w-full p-1 text-center font-bold rounded-lg border text-xs ${theme.inputBg || ''} ${theme.border || 'border-slate-700'}`}
               />
             </div>
           </div>
+        ) : (
+          <div className="grid grid-cols-2 gap-2">
+            <div className={`p-2.5 rounded-xl border ${theme.cardBg || ''} ${theme.border || 'border-slate-700'}`}>
+              <div className="text-[11px] opacity-70 mb-1 text-center font-medium">승점</div>
+              <input
+                type="number"
+                value={targetPoints}
+                onChange={(e) => setTargetPoints(Number(e.target.value))}
+                className={`w-full p-1.5 text-center font-bold rounded-lg border text-xs ${theme.inputBg || ''} ${theme.border || 'border-slate-700'}`}
+              />
+            </div>
+            <div className={`p-2.5 rounded-xl border ${theme.cardBg || ''} ${theme.border || 'border-slate-700'}`}>
+              <div className="text-[11px] opacity-70 mb-1 text-center font-medium">타임아웃</div>
+              <input
+                type="number"
+                min={1}
+                max={4}
+                value={timeoutsPerPlayer}
+                onChange={(e) => setTimeoutsPerPlayer(Number(e.target.value))}
+                className={`w-full p-1.5 text-center font-bold rounded-lg border text-xs ${theme.inputBg || ''} ${theme.border || 'border-slate-700'}`}
+              />
+            </div>
+          </div>
+        )}
 
-          {method === "set" && (
-            <div className="grid grid-cols-2 gap-3">
-              <div className="flex flex-col gap-1">
-                <label className="text-xs font-bold opacity-60">승리 세트 수</label>
+        {/* 3. 초구 (선공) 및 흰공 선택 */}
+        <div className="grid grid-cols-2 gap-2">
+          {/* 초구 (선공) */}
+          <div className={`p-3 rounded-xl border ${theme.cardBg || ''} ${theme.border || 'border-slate-700'}`}>
+            <div className="text-xs opacity-70 mb-1.5 font-medium">초구 (선공)</div>
+            <div className="grid grid-cols-2 gap-1">
+              <button
+                type="button"
+                onClick={() => setFirstBreak("away")}
+                className={`py-1.5 rounded-md text-xs font-bold border truncate px-1 ${
+                  firstBreak === "away"
+                    ? `${theme.inputBg || 'bg-slate-700'} text-white border-slate-500`
+                    : `opacity-50 ${theme.border || 'border-slate-700'}`
+                }`}
+              >
+                {p1Name}
+              </button>
+              <button
+                type="button"
+                onClick={() => setFirstBreak("home")}
+                className={`py-1.5 rounded-md text-xs font-bold border truncate px-1 ${
+                  firstBreak === "home"
+                    ? `${theme.inputBg || 'bg-slate-700'} text-white border-slate-500`
+                    : `opacity-50 ${theme.border || 'border-slate-700'}`
+                }`}
+              >
+                {p2Name}
+              </button>
+            </div>
+          </div>
+
+          {/* 흰공 선택 (선수 선택) */}
+          <div className={`p-3 rounded-xl border ${theme.cardBg || ''} ${theme.border || 'border-slate-700'}`}>
+            <div className="text-xs opacity-70 mb-1.5 font-medium">흰공 선택</div>
+            <div className="grid grid-cols-2 gap-1">
+              <button
+                type="button"
+                onClick={() => setAwayBallColor("white")}
+                className={`py-1.5 rounded-md text-xs font-bold border truncate px-1 ${
+                  awayBallColor === "white"
+                    ? `${theme.inputBg || 'bg-slate-700'} text-white border-slate-500`
+                    : `opacity-50 ${theme.border || 'border-slate-700'}`
+                }`}
+              >
+                {p1Name}
+              </button>
+              <button
+                type="button"
+                onClick={() => setAwayBallColor("yellow")}
+                className={`py-1.5 rounded-md text-xs font-bold border truncate px-1 ${
+                  awayBallColor === "yellow"
+                    ? `${theme.inputBg || 'bg-slate-700'} text-white border-slate-500`
+                    : `opacity-50 ${theme.border || 'border-slate-700'}`
+                }`}
+              >
+                {p2Name}
+              </button>
+            </div>
+          </div>
+        </div>
+
+        {/* 4. 선수 1 / 선수 2 이름 입력 (공 색상 배지 포함) */}
+        <div className="grid grid-cols-2 gap-2">
+          {/* 선수 1 */}
+          <div className={`p-3 rounded-xl border ${theme.cardBg || ''} ${theme.border || 'border-slate-700'}`}>
+            <div className="flex justify-between items-center mb-1.5">
+              <span className="font-bold text-xs">선수 1</span>
+              <div className="flex items-center gap-1">
+                {/* 공 색상 디자인 배지 */}
+                <span
+                  className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${
+                    awayBallColor === "white"
+                      ? "bg-slate-100 text-slate-900 border border-slate-300"
+                      : "bg-amber-400 text-slate-950 font-black"
+                  }`}
+                >
+                  {awayBallColor === "white" ? "흰공" : "노란공"}
+                </span>
+                <span className="text-[10px] opacity-70 font-semibold">
+                  {firstBreak === "away" ? "초구" : "상대"}
+                </span>
+              </div>
+            </div>
+            <input
+              type="text"
+              value={awayPlayerName}
+              onChange={(e) => setAwayPlayerName(e.target.value)}
+              placeholder="선수명"
+              className={`w-full p-2 rounded-lg border text-xs ${theme.inputBg || ''} ${theme.border || 'border-slate-700'}`}
+            />
+          </div>
+
+          {/* 선수 2 */}
+          <div className={`p-3 rounded-xl border ${theme.cardBg || ''} ${theme.border || 'border-slate-700'}`}>
+            <div className="flex justify-between items-center mb-1.5">
+              <span className="font-bold text-xs">선수 2</span>
+              <div className="flex items-center gap-1">
+                {/* 공 색상 디자인 배지 */}
+                <span
+                  className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${
+                    awayBallColor === "yellow"
+                      ? "bg-slate-100 text-slate-900 border border-slate-300"
+                      : "bg-amber-400 text-slate-950 font-black"
+                  }`}
+                >
+                  {awayBallColor === "yellow" ? "흰공" : "노란공"}
+                </span>
+                <span className="text-[10px] opacity-70 font-semibold">
+                  {firstBreak === "home" ? "초구" : "상대"}
+                </span>
+              </div>
+            </div>
+            <input
+              type="text"
+              value={homePlayerName}
+              onChange={(e) => setHomePlayerName(e.target.value)}
+              placeholder="선수명"
+              className={`w-full p-2 rounded-lg border text-xs ${theme.inputBg || ''} ${theme.border || 'border-slate-700'}`}
+            />
+          </div>
+        </div>
+
+        {/* 5. 심판명 (주심/부심/기록심) & 경기원명 & 메모 */}
+        <div className={`p-3.5 rounded-xl border space-y-3 ${theme.cardBg || ''} ${theme.border || 'border-slate-700'}`}>
+          {/* 심판명 (3분할) */}
+          <div>
+            <div className="text-xs opacity-70 mb-1.5 font-medium">심판 정보</div>
+            <div className="grid grid-cols-3 gap-1.5">
+              <div>
+                <div className="text-[10px] opacity-60 mb-0.5">주심</div>
                 <input
-                  inputMode="numeric"
-                  value={winningSets}
-                  onChange={(e) => setWinningSets(e.target.value.replace(/[^0-9]/g, ""))}
-                  className="w-full rounded-md border px-2 py-1.5 text-sm outline-none"
-                  style={inputStyle}
+                  type="text"
+                  value={mainReferee}
+                  onChange={(e) => setMainReferee(e.target.value)}
+                  placeholder="주심명"
+                  className={`w-full p-1.5 rounded-lg border text-xs ${theme.inputBg || ''} ${theme.border || 'border-slate-700'}`}
+                />
+              </div>
+              <div>
+                <div className="text-[10px] opacity-60 mb-0.5">부심</div>
+                <input
+                  type="text"
+                  value={assistantReferee}
+                  onChange={(e) => setAssistantReferee(e.target.value)}
+                  placeholder="부심명"
+                  className={`w-full p-1.5 rounded-lg border text-xs ${theme.inputBg || ''} ${theme.border || 'border-slate-700'}`}
+                />
+              </div>
+              <div>
+                <div className="text-[10px] opacity-60 mb-0.5">기록심</div>
+                <input
+                  type="text"
+                  value={recordReferee}
+                  onChange={(e) => setRecordReferee(e.target.value)}
+                  placeholder="기록심명"
+                  className={`w-full p-1.5 rounded-lg border text-xs ${theme.inputBg || ''} ${theme.border || 'border-slate-700'}`}
                 />
               </div>
             </div>
-          )}
+          </div>
 
-          {/* First break + timeouts */}
-          <div className="grid grid-cols-2 gap-3">
-            <div className="flex flex-col gap-1">
-              <label className="text-xs font-bold opacity-60">초구 (선공)</label>
-              <div className="flex overflow-hidden rounded-md border" style={{ borderColor: "currentColor" }}>
-                {(["away", "home"] as Side[]).map((s) => (
-                  <button
-                    key={s}
-                    type="button"
-                    onClick={() => setFirstBreak(s)}
-                    className="flex-1 px-2 py-1.5 text-sm font-semibold"
-                    style={
-                      firstBreak === s
-                        ? { backgroundColor: theme.fg, color: theme.bg }
-                        : { backgroundColor: "transparent" }
-                    }
-                  >
-                    {s === "away" ? "어웨이" : "홈"}
-                  </button>
-                ))}
+          {/* 경기원명 (2분할) */}
+          <div>
+            <div className="text-xs opacity-70 mb-1.5 font-medium">경기원 정보</div>
+            <div className="grid grid-cols-2 gap-2">
+              <div>
+                <input
+                  type="text"
+                  value={official1}
+                  onChange={(e) => setOfficial1(e.target.value)}
+                  placeholder="경기원 1"
+                  className={`w-full p-2 rounded-lg border text-xs ${theme.inputBg || ''} ${theme.border || 'border-slate-700'}`}
+                />
+              </div>
+              <div>
+                <input
+                  type="text"
+                  value={official2}
+                  onChange={(e) => setOfficial2(e.target.value)}
+                  placeholder="경기원 2"
+                  className={`w-full p-2 rounded-lg border text-xs ${theme.inputBg || ''} ${theme.border || 'border-slate-700'}`}
+                />
               </div>
             </div>
-            <div className="flex flex-col gap-1">
-              <label className="text-xs font-bold opacity-60">타임아웃 (1~5)</label>
-              <input
-                inputMode="numeric"
-                value={timeouts}
-                onChange={(e) => setTimeouts(e.target.value.replace(/[^0-9]/g, "").slice(0, 1))}
-                className="w-full rounded-md border px-2 py-1.5 text-sm outline-none"
-                style={inputStyle}
-              />
-            </div>
           </div>
 
-          {/* Away / Home two columns */}
-          <div className="grid grid-cols-2 gap-3">
-            <TeamColumn
-              side="away"
-              name={awayName}
-              setName={setAwayName}
-              players={awayPlayers}
-              setPlayers={setAwayPlayers}
-            />
-            <TeamColumn
-              side="home"
-              name={homeName}
-              setName={setHomeName}
-              players={homePlayers}
-              setPlayers={setHomePlayers}
-            />
-          </div>
-
-          {/* Officials + memo */}
-          <div className="grid grid-cols-2 gap-3">
-            <div className="flex flex-col gap-1">
-              <label className="text-xs font-bold opacity-60">심판명</label>
-              <input
-                value={referee}
-                onChange={(e) => setReferee(e.target.value)}
-                className="w-full rounded-md border px-2 py-1.5 text-sm outline-none"
-                style={inputStyle}
-              />
-            </div>
-            <div className="flex flex-col gap-1">
-              <label className="text-xs font-bold opacity-60">기록원명</label>
-              <input
-                value={recorder}
-                onChange={(e) => setRecorder(e.target.value)}
-                className="w-full rounded-md border px-2 py-1.5 text-sm outline-none"
-                style={inputStyle}
-              />
-            </div>
-          </div>
-
-          <div className="flex flex-col gap-1">
-            <label className="text-xs font-bold opacity-60">메모</label>
-            <textarea
+          {/* 메모 */}
+          <div>
+            <div className="text-xs opacity-70 mb-1 font-medium">메모</div>
+            <input
+              type="text"
               value={memo}
               onChange={(e) => setMemo(e.target.value)}
-              rows={2}
-              className="w-full resize-none rounded-md border px-2 py-1.5 text-sm outline-none"
-              style={inputStyle}
+              className={`w-full p-2 rounded-lg border text-xs ${theme.inputBg || ''} ${theme.border || 'border-slate-700'}`}
             />
           </div>
         </div>
-      </main>
+      </div>
+
+      {/* 하단 푸터 */}
+      <div className="text-center text-xs opacity-40 pt-4 font-sans">
+        Made by Jmean
+      </div>
     </div>
   )
 }

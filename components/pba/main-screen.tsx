@@ -9,9 +9,8 @@ import { useTheme } from "./theme-context"
 import { OptionDialog } from "./option-dialog"
 
 const MODE_META: { mode: GameMode; icon: typeof User; desc: string }[] = [
-  { mode: "single", icon: User, desc: "각 팀 선수 1명씩 겨루는 개인전" },
-  { mode: "doubles", icon: Users, desc: "각 팀 선수 2명씩 교대 득점하는 복식" },
-  { mode: "teamIndividual", icon: UserSquare2, desc: "팀 소속 선수의 개인 대결" },
+  { mode: "single", icon: User},
+  { mode: "doubles", icon: Users},
 ]
 
 interface MainScreenProps {
