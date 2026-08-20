@@ -37,7 +37,7 @@ function TurnCell({
   fg: string
   accent: string
 }) {
-  const isDoubles = config.mode === "doubles"
+  const isDoubles = config.mode === "teamleague"
   if (!turn) {
     return <div className="min-h-[3.5rem] rounded-md border border-dashed opacity-30" style={{ borderColor: fg }} />
   }
@@ -62,7 +62,7 @@ function TurnCell({
             : playerName(config, side, turn.playerIndex)}
         </span>
         <span className="shrink-0 tabular-nums text-right text-[10px] opacity-50">
-          누적 {turn.runningTotal}
+          총득점 {turn.runningTotal}
         </span>
       </div>
       <div className="flex items-baseline justify-between gap-2">
@@ -143,64 +143,84 @@ export function Scoreboard({ config, derived, current }: ScoreboardProps) {
   }, [maxInning, current?.side, current?.inning, derived.currentPoints])
 
   return (
-    <div ref={scrollRef} className="mx-auto w-full max-w-3xl">
-      {/* Team header row */}
-      <div
-        className="sticky top-0 z-[1] grid grid-cols-[1fr_auto_1fr] gap-2 py-1 text-center"
-        style={{ backgroundColor: theme.bg }}
-      >
-        <div
-          className="rounded-md border-b-2 py-1 text-sm font-black"
-          style={{ borderColor: TEAM_COLORS.away, color: TEAM_COLORS.away }}
-        >
-          {config.away.name}
-        </div>
-        <div className="w-10 self-center text-xs font-bold opacity-50">이닝</div>
-        <div
-          className="rounded-md border-b-2 py-1 text-sm font-black"
-          style={{ borderColor: TEAM_COLORS.home, color: TEAM_COLORS.home }}
-        >
-          {config.home.name}
-        </div>
-      </div>
-
-      {/* Inning rows with box-border layout */}
-      <div className="flex flex-col gap-1.5">
-        {innings.map((inning) => (
-          <div
-            key={inning}
-            className="grid grid-cols-[1fr_auto_1fr] items-stretch gap-1.5 rounded-lg border p-1.5"
-            style={{ borderColor: withAlpha(theme.fg, 0.15) }}
-          >
-            <TurnCell
-              config={config}
-              side="away"
-              turn={getTurn("away", inning)}
-              isCurrent={isCurrentCell("away", inning)}
-              fg={theme.fg}
-              accent={TEAM_COLORS.away}
-            />
-            <div className="flex w-10 items-center justify-center">
-              <span
-                className="flex h-7 w-7 items-center justify-center rounded-full text-sm font-black tabular-nums"
-                style={{
-                  border: `1px solid ${withAlpha(theme.fg, 0.3)}`,
-                  color: theme.fg,
-                }}
-              >
-                {inning}
+   <div ref={scrollRef} className="mx-auto w-full max-w-3xl">
+      {/* 상단 PBA 스타일 3단 스코어보드 Header */}
+      <div className="grid grid-cols-3 gap-3 p-4 bg-slate-950 rounded-2xl text-slate-100 shadow-xl border border-slate-800">
+        
+        {/* 1. 좌측 카드 (선공/레드 - 홈) */}
+        <div className="border-2 border-red-500/80 rounded-2xl p-3 bg-slate-900/90 flex flex-col justify-between shadow-inner">
+          <div className="flex items-center justify-between gap-1">
+            <div className="flex items-center gap-1.5 overflow-hidden">
+              <span className="w-2.5 h-2.5 rounded-full bg-red-500 shrink-0" />
+              <span className="font-bold text-lg text-red-400 truncate">
+                {config.home.name || "선수 1"}
               </span>
             </div>
-            <TurnCell
-              config={config}
-              side="home"
-              turn={getTurn("home", inning)}
-              isCurrent={isCurrentCell("home", inning)}
-              fg={theme.fg}
-              accent={TEAM_COLORS.home}
-            />
+            <button 
+              onClick={() => onTimeout?.("home")}
+              className="w-6 h-6 rounded-md bg-red-600 text-white font-bold text-xs flex items-center justify-center hover:bg-red-500 transition-colors shrink-0"
+            >
+              T
+            </button>
           </div>
-        ))}
+
+          <div className="text-center my-1 text-6xl font-black tracking-tight text-white">
+            {derived.homeStats.points}
+          </div>
+
+          <div className="flex justify-around items-center text-xs font-medium text-slate-400 border-t border-slate-800 pt-2">
+            <span>{derived.homeStats.avg || "0.000"} <span className="text-[10px] text-slate-500">AVG</span></span>
+            <span className="text-slate-700">/</span>
+            <span>{derived.homeStats.highRun || 0} <span className="text-[10px] text-slate-500">HR</span></span>
+          </div>
+        </div>
+
+        {/* 2. 중앙 패널 (MATCH TIME & 이닝) */}
+        <div className="bg-slate-900 rounded-2xl p-3 flex flex-col justify-between text-center border border-slate-800">
+          <div>
+            <div className="text-[10px] tracking-widest text-slate-400 font-bold uppercase">MATCH TIME</div>
+            <div className="text-sm font-mono font-bold text-slate-200 mt-0.5">
+              {/* 타이머 변수가 있을 경우 매칭 */}
+              00:00:00
+            </div>
+          </div>
+
+          <div className="w-14 h-14 bg-white text-slate-950 rounded-full mx-auto flex items-center justify-center text-2xl font-black shadow-md border-2 border-slate-200">
+            {derived.currentPoints || 0}
+          </div>
+
+          <div className="bg-slate-800/90 text-slate-200 rounded-lg py-1.5 font-bold text-sm border border-slate-700/50">
+            {current?.inning || 1}이닝
+          </div>
+        </div>
+
+        {/* 3. 우측 카드 (후공/옐로우 - 어웨이) */}
+        <div className="border-2 border-amber-500/80 rounded-2xl p-3 bg-slate-900/90 flex flex-col justify-between shadow-inner">
+          <div className="flex items-center justify-between gap-1">
+            <div className="flex items-center gap-1.5 overflow-hidden">
+              <span className="font-bold text-lg text-amber-400 truncate">
+                {config.away.name || "선수 2"}
+              </span>
+            </div>
+            <button 
+              onClick={() => onTimeout?.("away")}
+              className="w-6 h-6 rounded-md bg-amber-600 text-white font-bold text-xs flex items-center justify-center hover:bg-amber-500 transition-colors shrink-0"
+            >
+              T
+            </button>
+          </div>
+
+          <div className="text-center my-1 text-6xl font-black tracking-tight text-white">
+            {derived.awayStats.points}
+          </div>
+
+          <div className="flex justify-around items-center text-xs font-medium text-slate-400 border-t border-slate-800 pt-2">
+            <span>{derived.awayStats.avg || "0.000"} <span className="text-[10px] text-slate-500">AVG</span></span>
+            <span className="text-slate-700">/</span>
+            <span>{derived.awayStats.highRun || 0} <span className="text-[10px] text-slate-500">HR</span></span>
+          </div>
+        </div>
+
       </div>
     </div>
   )

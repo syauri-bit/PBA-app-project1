@@ -1,5 +1,4 @@
-export type GameMode = "single" | "doubles" | "teamIndividual"
-
+export type GameMode = "single" | "teamleague"
 export type Method = "point" | "set"
 
 export type Side = "away" | "home"
@@ -88,17 +87,17 @@ export interface GameState {
 }
 
 export const MODE_LABELS: Record<GameMode, string> = {
-  single: "1부투어 (개인전)",
-  doubles: "팀리그 (복식)",
-  teamIndividual: "팀리그 (개인)",
+  single: "PBA / LPBA 1부투어",
+  teamleague: "PBA 팀리그",
+  
 }
 
 /** Team league accent colors: away = red, home = blue. */
 export const TEAM_COLORS: Record<Side, string> = {
-  away: "#E53935",
-  home: "#1E88E5",
+  away: "#1E88E5",
+  home: "#E53935",
 }
 
 export function playersPerTeam(mode: GameMode): number {
-  return mode === "doubles" ? 2 : 1
+  return mode === "teamleague" ? 2 : 1
 }

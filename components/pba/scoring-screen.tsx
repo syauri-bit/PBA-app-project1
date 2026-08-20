@@ -264,17 +264,27 @@ export function ScoringScreen({
 
     window.addEventListener("keydown", onKeyDown)
     return () => window.removeEventListener("keydown", onKeyDown)
-  }, [showReview, showPreview, push, actions, config.method, isTieBreak, onExit])
+}, [showReview, showPreview, push, actions, config.method, isTieBreak, onExit])
 
-  const activeTeam = current ? (current.side === "away" ? config.away : config.home) : null
-  const activePlayer =
-    current && activeTeam ? activeTeam.players[current.playerIndex] ?? activeTeam.players[0] : null
+  const activeTeam = current 
+    ? (current.side === "away" ? config.away : config.home) 
+    : null
+
+  const activePlayerName = current 
+    ? (current.side === "away" 
+        ? (config.away?.name || config.awayPlayer1 || "선수 2") 
+        : (config.home?.name || config.homePlayer1 || "선수 1"))
+    : ""
+
+  const activePlayer = 
+    current && activeTeam 
+      ? activeTeam.players?.[current.playerIndex] ?? activeTeam.players?.[0] ?? null
+      : null
 
   const accent = current ? TEAM_COLORS[current.side] : theme.fg
-  const ctrlStyle = { borderColor: accent, backgroundColor: accent, color: theme.bg }
-  const outlineStyle = { borderColor: accent, backgroundColor: theme.bg, color: accent }
-
-  const meta: MatchMeta = { startedAt: startedAtRef.current, endedAt: Date.now() }
+  const ctrlStyle = { borderColor: accent, backgroundColor: accent, color: theme.bg };
+  const outlineStyle = { borderColor: accent, backgroundColor: theme.bg, color: accent };  
+  const meta: MatchMeta = { startedAt: startedAtRef.current, endedAt: Date.now() };
 
   // Set-level AVG/HR (current set, including in-progress)
   const setAvgAway = derived.away.innings > 0 ? derived.away.total / derived.away.innings : 0

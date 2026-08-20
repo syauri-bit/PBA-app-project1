@@ -10,7 +10,7 @@ import { OptionDialog } from "./option-dialog"
 
 const MODE_META: { mode: GameMode; icon: typeof User; desc: string }[] = [
   { mode: "single", icon: User},
-  { mode: "doubles", icon: Users},
+  { mode: "teamleague", icon: Users},
 ]
 
 interface MainScreenProps {
