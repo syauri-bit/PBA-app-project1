@@ -1,8 +1,7 @@
 "use client"
 
-import { useEffect, useRef } from "react"
+import { useEffect, useRef, useState } from "react"
 import type { DerivedSet, MatchConfig, Side, Turn } from "@/lib/pba/types"
-import { TEAM_COLORS, playersPerTeam } from "@/lib/pba/types"
 import { withAlpha } from "@/lib/pba/colors"
 import { useTheme } from "./theme-context"
 
@@ -10,6 +9,8 @@ interface ScoreboardProps {
   config: MatchConfig
   derived: DerivedSet
   current: Turn | null
+  onTimeout?: (side: Side) => void
+  onSaveConfig?: (targetPoints: number, matchType: "points" | "sets") => void
 }
 
 function playerName(config: MatchConfig, side: Side, playerIndex: number): string {
@@ -114,10 +115,12 @@ function TurnCell({
   )
 }
 
-export function Scoreboard({ config, derived, current }: ScoreboardProps) {
+export function Scoreboard({ config, derived, current, onTimeout, onSaveConfig }: ScoreboardProps) {
   const { theme } = useTheme()
-  const isDoubles = config.mode === "doubles"
   const scrollRef = useRef<HTMLDivElement>(null)
+
+  const [matchType, setMatchType] = useState<"points" | "sets">("points")
+  const [targetPoints, setTargetPoints] = useState<number>(config.targetPoints || 15)
 
   const lastTurnInning = Math.max(
     derived.away.turns.reduce((m, t) => Math.max(m, t.inning), 0),
@@ -142,12 +145,66 @@ export function Scoreboard({ config, derived, current }: ScoreboardProps) {
     }
   }, [maxInning, current?.side, current?.inning, derived.currentPoints])
 
+  const handleSave = () => {
+    if (onSaveConfig) {
+      onSaveConfig(targetPoints, matchType)
+    }
+  }
+
   return (
-   <div ref={scrollRef} className="mx-auto w-full max-w-3xl">
-      {/* 상단 PBA 스타일 3단 스코어보드 Header */}
+    <div ref={scrollRef} className="mx-auto w-full max-w-3xl space-y-4">
+      {/* 1. 최상단 헤더 (방식 선택, 승리 점수, 저장 버튼) */}
+      <div className="flex items-center justify-between bg-slate-900 border border-slate-800 text-slate-200 px-4 py-2 rounded-xl text-sm font-medium shadow-md">
+        <div className="flex items-center gap-3">
+          <span className="bg-slate-800 text-slate-400 text-xs px-2 py-0.5 rounded font-bold">
+            [메인]
+          </span>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => setMatchType("points")}
+              className={`px-2 py-0.5 rounded text-xs transition-colors ${
+                matchType === "points" ? "bg-blue-600 text-white font-bold" : "text-slate-400 hover:text-white"
+              }`}
+            >
+              점수제
+            </button>
+            <span className="text-slate-600">·</span>
+            <button
+              type="button"
+              onClick={() => setMatchType("sets")}
+              className={`px-2 py-0.5 rounded text-xs transition-colors ${
+                matchType === "sets" ? "bg-blue-600 text-white font-bold" : "text-slate-400 hover:text-white"
+              }`}
+            >
+              세트제
+            </button>
+          </div>
+        </div>
+
+        <div className="flex items-center gap-2">
+          <span className="text-xs text-slate-400">승리</span>
+          <input
+            type="number"
+            value={targetPoints}
+            onChange={(e) => setTargetPoints(Number(e.target.value))}
+            className="w-12 bg-slate-800 border border-slate-700 text-center rounded text-sm font-bold text-white focus:outline-none focus:border-blue-500"
+          />
+          <span className="text-xs text-slate-400">점</span>
+          <button
+            type="button"
+            onClick={handleSave}
+            className="ml-1 bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs px-2.5 py-1 rounded border border-slate-700 transition-colors font-semibold"
+          >
+            [저장]
+          </button>
+        </div>
+      </div>
+
+      {/* 2. PBA 스타일 3단 메인 스코어보드 */}
       <div className="grid grid-cols-3 gap-3 p-4 bg-slate-950 rounded-2xl text-slate-100 shadow-xl border border-slate-800">
         
-        {/* 1. 좌측 카드 (선공/레드 - 홈) */}
+        {/* 선공/레드 (홈) */}
         <div className="border-2 border-red-500/80 rounded-2xl p-3 bg-slate-900/90 flex flex-col justify-between shadow-inner">
           <div className="flex items-center justify-between gap-1">
             <div className="flex items-center gap-1.5 overflow-hidden">
@@ -157,15 +214,16 @@ export function Scoreboard({ config, derived, current }: ScoreboardProps) {
               </span>
             </div>
             <button 
+              type="button"
               onClick={() => onTimeout?.("home")}
-              className="w-6 h-6 rounded-md bg-red-600 text-white font-bold text-xs flex items-center justify-center hover:bg-red-500 transition-colors shrink-0"
+              className="w-6 h-6 rounded-md bg-red-600 text-white font-bold text-xs flex items-center justify-center hover:bg-red-500 transition-colors shrink-0 shadow"
             >
               T
             </button>
           </div>
 
           <div className="text-center my-1 text-6xl font-black tracking-tight text-white">
-            {derived.homeStats.points}
+            {derived.homeStats.points ?? 0}
           </div>
 
           <div className="flex justify-around items-center text-xs font-medium text-slate-400 border-t border-slate-800 pt-2">
@@ -175,12 +233,11 @@ export function Scoreboard({ config, derived, current }: ScoreboardProps) {
           </div>
         </div>
 
-        {/* 2. 중앙 패널 (MATCH TIME & 이닝) */}
+        {/* 중앙 MATCH TIME & 이닝 */}
         <div className="bg-slate-900 rounded-2xl p-3 flex flex-col justify-between text-center border border-slate-800">
           <div>
             <div className="text-[10px] tracking-widest text-slate-400 font-bold uppercase">MATCH TIME</div>
             <div className="text-sm font-mono font-bold text-slate-200 mt-0.5">
-              {/* 타이머 변수가 있을 경우 매칭 */}
               00:00:00
             </div>
           </div>
@@ -194,24 +251,26 @@ export function Scoreboard({ config, derived, current }: ScoreboardProps) {
           </div>
         </div>
 
-        {/* 3. 우측 카드 (후공/옐로우 - 어웨이) */}
+        {/* 후공/옐로우 (어웨이) */}
         <div className="border-2 border-amber-500/80 rounded-2xl p-3 bg-slate-900/90 flex flex-col justify-between shadow-inner">
           <div className="flex items-center justify-between gap-1">
             <div className="flex items-center gap-1.5 overflow-hidden">
+              <span className="w-2.5 h-2.5 rounded-full bg-amber-400 shrink-0" />
               <span className="font-bold text-lg text-amber-400 truncate">
                 {config.away.name || "선수 2"}
               </span>
             </div>
             <button 
+              type="button"
               onClick={() => onTimeout?.("away")}
-              className="w-6 h-6 rounded-md bg-amber-600 text-white font-bold text-xs flex items-center justify-center hover:bg-amber-500 transition-colors shrink-0"
+              className="w-6 h-6 rounded-md bg-amber-600 text-white font-bold text-xs flex items-center justify-center hover:bg-amber-500 transition-colors shrink-0 shadow"
             >
               T
             </button>
           </div>
 
           <div className="text-center my-1 text-6xl font-black tracking-tight text-white">
-            {derived.awayStats.points}
+            {derived.awayStats.points ?? 0}
           </div>
 
           <div className="flex justify-around items-center text-xs font-medium text-slate-400 border-t border-slate-800 pt-2">
@@ -221,6 +280,39 @@ export function Scoreboard({ config, derived, current }: ScoreboardProps) {
           </div>
         </div>
 
+      </div>
+
+      {/* 3. 하단 이닝별 득점 상세 히스토리 (기존 기능 복원) */}
+      <div className="space-y-2 pt-2">
+        {innings.map((inn) => (
+          <div key={inn} className="grid grid-cols-[1fr_auto_1fr] items-center gap-2">
+            <TurnCell
+              config={config}
+              side="home"
+              turn={getTurn("home", inn)}
+              isCurrent={isCurrentCell("home", inn)}
+              fg={theme.fg}
+              accent={theme.accent}
+            />
+            <div
+              className="flex h-8 w-8 items-center justify-center rounded-full text-xs font-bold"
+              style={{
+                backgroundColor: withAlpha(theme.fg, 0.1),
+                color: theme.fg,
+              }}
+            >
+              {inn}
+            </div>
+            <TurnCell
+              config={config}
+              side="away"
+              turn={getTurn("away", inn)}
+              isCurrent={isCurrentCell("away", inn)}
+              fg={theme.fg}
+              accent={theme.accent}
+            />
+          </div>
+        ))}
       </div>
     </div>
   )
